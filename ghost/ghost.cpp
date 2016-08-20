@@ -5,6 +5,7 @@
 #include <vector>
 #include <fstream>
 #include "SADXModLoader.h"
+#include "GameObject.h"
 using namespace std;
 
 struct GhostData
@@ -86,7 +87,18 @@ VoidFunc(sub_4128F0, 0x4128F0);
 VoidFunc(sub_439540, 0x439540);
 FunctionPointer(void, sub_439560, (int, int), 0x439560);
 FunctionPointer(void, sub_4030D0, (int, int), 0x4030D0);
-void __cdecl Ghost_Display(ObjectMaster *obj)
+
+class Ghost : GameObject
+{
+public:
+	Ghost(ObjectMaster *obj);
+	void Main();
+	void Display();
+};
+
+Ghost::Ghost(ObjectMaster *obj) :GameObject(obj){}
+
+void Ghost::Display()
 {
 	if (levelcomplete)
 	{
@@ -198,7 +210,7 @@ void __cdecl Ghost_Display(ObjectMaster *obj)
 	sub_439540();
 }
 
-void __cdecl Ghost_Main(ObjectMaster *obj)
+void Ghost::Main()
 {
 	ObjectMaster *charobj = GetCharacterObject(0);
 	if (!charobj || IsGamePaused())
@@ -216,7 +228,7 @@ void __cdecl Ghost_Main(ObjectMaster *obj)
 		frame.rotation = obj1->Rotation;
 		newghost.push_back(frame);
 	}
-	Ghost_Display(obj);
+	Display();
 }
 
 void ResetGhost()
@@ -277,7 +289,7 @@ void LoadGhost()
 		levelstarted = true;
 	}
 	levelcomplete = false;
-	ObjectMaster *obj = LoadObject((LoadObj)0, 1, Ghost_Main);
+	ObjectMaster *obj = LoadObject((LoadObj)0, 1, GameObject::Load<Ghost>);
 	if (!obj)
 	{
 		if (oldghost)
@@ -286,8 +298,6 @@ void LoadGhost()
 		oldghostlength = 0;
 		return;
 	}
-	if (oldghost)
-		obj->DisplaySub = Ghost_Display;
 }
 
 void SaveGhost()
@@ -381,9 +391,9 @@ extern "C"
 		CreateDirectoryA(savepath.c_str(), nullptr);
 	}
 
-	__declspec(dllexport) const PointerList Jumps = { arrayptrandlength(jumps) };
+	__declspec(dllexport) PointerList Jumps = { arrayptrandlength(jumps) };
 
-	__declspec(dllexport) const PointerList Calls = { arrayptrandlength(calls) };
+	__declspec(dllexport) PointerList Calls = { arrayptrandlength(calls) };
 
-	__declspec(dllexport) const int SADXModInfo = ModLoaderVer;
+	__declspec(dllexport) ModInfo SADXModInfo = { ModLoaderVer };
 }
