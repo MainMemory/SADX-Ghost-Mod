@@ -21,27 +21,27 @@ struct GhostData
 NJS_OBJECT **___SONIC_OBJECTS;
 
 NJS_TEXLIST *const TextureLists[] = {
-	(NJS_TEXLIST *)0x91CB58,
-	(NJS_TEXLIST *)0x892A20,
-	(NJS_TEXLIST *)0x91A9C8,
-	(NJS_TEXLIST *)0x91BD20,
-	(NJS_TEXLIST *)0x8CB470,
-	(NJS_TEXLIST *)0x91C800,
-	(NJS_TEXLIST *)0x91C560,
-	(NJS_TEXLIST *)0x91C910,
-	(NJS_TEXLIST *)0x91CBC0
+	&SONIC_TEXLIST,
+	&EGGMAN_TEXLIST,
+	&MILES_TEXLIST,
+	&KNUCKLES_TEXLIST,
+	&TIKAL_TEXLIST,
+	&AMY_TEXLIST,
+	&E102_TEXLIST,
+	&BIG_TEXLIST,
+	&METALSONIC_TEXLIST
 };
 
 AnimData *const AnimDataList[] = {
-	(AnimData *)0x3C56210,
-	(AnimData *)0x38F3CE0,
-	(AnimData *)0x3C49D90,
+	SonicAnimData,
+	Eggman_AniList,
+	TailsAnimData,
 	(AnimData *)0x3C532A0,
-	(AnimData *)0x38F38F8,
+	Tikal_Animations,
 	(AnimData *)0x3C54880,
 	(AnimData *)0x3C53FA8,
-	(AnimData *)0x3C556A0,
-	(AnimData *)0x3C56210
+	BigAnimData,
+	SonicAnimData
 };
 
 string savepath = "savedata\\ghost";
@@ -78,22 +78,16 @@ void FramesToTime(unsigned int frames, unsigned char &min, unsigned char &sec, u
 DataPointer(int, dword_3ABD9CC, 0x3ABD9CC);
 DataPointer(float, dword_3ABD9C0, 0x3ABD9C0);
 FunctionPointer(void, sub_407040, (NJS_OBJECT *, NJS_MOTION *, float), 0x407040);
-FunctionPointer(void, sub_407020, (NJS_ACTION *, float), 0x407020);
 FunctionPointer(void, sub_405470, (NJS_ACTION *, float, int), 0x405470);
-FunctionPointer(void, sub_412420, (int), 0x412420);
-FunctionPointer(void, sub_4128A0, (float, float, float, float), 0x4128A0);
-VoidFunc(sub_439520, 0x439520);
-VoidFunc(sub_4128F0, 0x4128F0);
-VoidFunc(sub_439540, 0x439540);
-FunctionPointer(void, sub_439560, (int, int), 0x439560);
-FunctionPointer(void, sub_4030D0, (int, int), 0x4030D0);
 
 class Ghost : GameObject
 {
-public:
+private:
 	Ghost(ObjectMaster *obj);
+public:
 	void Main();
 	void Display();
+	static void __cdecl Load(ObjectMaster *obj);
 };
 
 Ghost::Ghost(ObjectMaster *obj) :GameObject(obj){}
@@ -153,7 +147,7 @@ void Ghost::Display()
 	GhostData *ghost = &oldghost[i];
 	if (ghost->segment != CurrentAct)
 		return;
-	if (!CheckModelDistance_v(&ghost->position, 15.0))
+	if (!IsVisible(&ghost->position, 15.0))
 		return;
 	display++;
 	display %= 2;
@@ -165,15 +159,16 @@ void Ghost::Display()
 	NJS_TEXLIST *tex = TextureLists[character];
 	bool super = CurrentCharacter == Characters_Sonic && (ghost->animation >= 134 && ghost->animation <= 145);
 	if (super)
-		tex = (NJS_TEXLIST *)0x142272C;
+		tex = &SUPERSONIC_TEXLIST;
 	njSetTexture(tex);
 	NJS_ACTION *anim = AnimDataList[character][ghost->animation].Animation;
-	sub_439520();
-	sub_439560(0, 1048576);
-	sub_4030D0(0, 8);
-	sub_4030D0(1, 10);
-	sub_4128A0(1.0, 1.0, 1.0, 1.0);
-	sub_412420(super ? 4 : 2);
+	Direct3D_SetZFunc(1u);
+	BackupConstantAttr();
+	AddConstantAttr(0, NJD_FLAG_IGNORE_SPECULAR);
+	njControl3D_Backup();
+	njControl3D(NJD_CONTROL_3D_CONSTANT_MATERIAL);
+	SetMaterialAndSpriteColor_Float(1.0, 1.0, 1.0, 1.0);
+	Direct3D_PerformLighting(super ? 4 : 2);
 	njPushMatrix(nullptr);
 	njTranslate(nullptr, 0, GetCharObj2(0)->PhysicsData.YOff, 0);
 	njTranslateV(nullptr, &ghost->position);
@@ -185,14 +180,14 @@ void Ghost::Display()
 		njRotateY(nullptr, (unsigned __int16)(-32768 - LOWORD(ghost->rotation.y)));
 	if (character == Characters_MetalSonic)
 	{
-		if (anim->object == *___SONIC_OBJECTS)
+		if (anim->object == ___SONIC_OBJECTS[0])
 			sub_407040(___SONIC_OBJECTS[68], anim->motion, ghost->animationframe);
 		else if (anim->object == ___SONIC_OBJECTS[66])
 			sub_407040(___SONIC_OBJECTS[69], anim->motion, ghost->animationframe);
 		else if (anim->object == ___SONIC_OBJECTS[67])
 			sub_407040(___SONIC_OBJECTS[70], anim->motion, ghost->animationframe);
 		else
-			sub_407020(anim, ghost->animationframe);
+			njAction(anim, ghost->animationframe);
 	}
 	else if (dword_3ABD9CC)
 	{
@@ -201,13 +196,13 @@ void Ghost::Display()
 		dword_3ABD9C0 = 0;
 	}
 	else
-		sub_407020(anim, ghost->animationframe);
+		njAction(anim, ghost->animationframe);
 	njPopMatrix(1);
-	sub_412420(0);
-	sub_4030D0(0, 8);
-	sub_4030D0(1, 6);
-	sub_4128F0();
-	sub_439540();
+	Direct3D_PerformLighting(0);
+	ClampGlobalColorThing_Thing();
+	njControl3D_Restore();
+	RestoreConstantAttr();
+	Direct3D_ResetZFunc();
 }
 
 void Ghost::Main()
@@ -222,13 +217,19 @@ void Ghost::Main()
 		GhostData frame;
 		frame.segment = (char)CurrentAct;
 		frame.padding = 0;
-		frame.animation = obj2->AnimThing.Animation;
-		frame.animationframe = obj2->AnimThing.AnimationFrame;
+		frame.animation = obj2->AnimationThing.Index;
+		frame.animationframe = obj2->AnimationThing.Frame;
 		frame.position = obj1->Position;
 		frame.rotation = obj1->Rotation;
 		newghost.push_back(frame);
 	}
 	Display();
+}
+
+void Ghost::Load(ObjectMaster *obj)
+{
+	Ghost *ghost = new Ghost(obj);
+	ghost->Main();
 }
 
 void ResetGhost()
@@ -289,7 +290,7 @@ void LoadGhost()
 		levelstarted = true;
 	}
 	levelcomplete = false;
-	ObjectMaster *obj = LoadObject((LoadObj)0, 1, GameObject::Load<Ghost>);
+	ObjectMaster *obj = LoadObject((LoadObj)0, 1, Ghost::Load);
 	if (!obj)
 	{
 		if (oldghost)
@@ -391,9 +392,9 @@ extern "C"
 		CreateDirectoryA(savepath.c_str(), nullptr);
 	}
 
-	__declspec(dllexport) PointerList Jumps = { arrayptrandlength(jumps) };
+	__declspec(dllexport) PointerList Jumps = { arrayptrandlengthT(jumps, int) };
 
-	__declspec(dllexport) PointerList Calls = { arrayptrandlength(calls) };
+	__declspec(dllexport) PointerList Calls = { arrayptrandlengthT(calls, int) };
 
 	__declspec(dllexport) ModInfo SADXModInfo = { ModLoaderVer };
 }
