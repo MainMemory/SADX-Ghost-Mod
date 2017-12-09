@@ -77,8 +77,6 @@ void FramesToTime(unsigned int frames, unsigned char &min, unsigned char &sec, u
 
 DataPointer(int, dword_3ABD9CC, 0x3ABD9CC);
 DataPointer(float, dword_3ABD9C0, 0x3ABD9C0);
-FunctionPointer(void, sub_407040, (NJS_OBJECT *, NJS_MOTION *, float), 0x407040);
-FunctionPointer(void, sub_405470, (NJS_ACTION *, float, int), 0x405470);
 
 class Ghost : GameObject
 {
@@ -181,18 +179,18 @@ void Ghost::Display()
 	if (character == Characters_MetalSonic)
 	{
 		if (anim->object == ___SONIC_OBJECTS[0])
-			sub_407040(___SONIC_OBJECTS[68], anim->motion, ghost->animationframe);
+			njAction_QueueObject(___SONIC_OBJECTS[68], anim->motion, ghost->animationframe);
 		else if (anim->object == ___SONIC_OBJECTS[66])
-			sub_407040(___SONIC_OBJECTS[69], anim->motion, ghost->animationframe);
+			njAction_QueueObject(___SONIC_OBJECTS[69], anim->motion, ghost->animationframe);
 		else if (anim->object == ___SONIC_OBJECTS[67])
-			sub_407040(___SONIC_OBJECTS[70], anim->motion, ghost->animationframe);
+			njAction_QueueObject(___SONIC_OBJECTS[70], anim->motion, ghost->animationframe);
 		else
 			njAction(anim, ghost->animationframe);
 	}
 	else if (dword_3ABD9CC)
 	{
 		dword_3ABD9C0 = -5952.0f;
-		sub_405470(anim, ghost->animationframe, 1);
+		njAction_Queue(anim, ghost->animationframe, QueuedModelFlagsB_EnableZWrite);
 		dword_3ABD9C0 = 0;
 	}
 	else
