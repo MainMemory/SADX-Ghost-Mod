@@ -408,9 +408,9 @@ extern "C"
 		CreateDirectoryA(savepath.c_str(), nullptr);
 	}
 
-	__declspec(dllexport) const PointerList Jumps = { arrayptrandlengthT(jumps, int) };
+	__declspec(dllexport) PointerList Jumps = { arrayptrandlengthT(jumps, int) };
 
-	__declspec(dllexport) const PointerList Calls = { arrayptrandlengthT(calls, int) };
+	__declspec(dllexport) PointerList Calls = { arrayptrandlengthT(calls, int) };
 
-	__declspec(dllexport) const int SADXModInfo = ModLoaderVer;
+	__declspec(dllexport) ModInfo SADXModInfo = { ModLoaderVer };
 }
