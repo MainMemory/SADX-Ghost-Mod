@@ -145,7 +145,7 @@ void Ghost::Display()
 	GhostData *ghost = &oldghost[i];
 	if (ghost->segment != CurrentAct)
 		return;
-	if (!IsVisible(&ghost->position, 15.0))
+	if (!IsVisible(&ghost->position, 60))
 		return;
 	display++;
 	display %= 2;

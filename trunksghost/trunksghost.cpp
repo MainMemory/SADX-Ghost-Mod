@@ -150,7 +150,7 @@ void Ghost::Display()
 		GhostData *ghost = &(*curghost)[i];
 		if (ghost->segment != CurrentAct)
 			continue;
-		if (!IsVisible(&ghost->position, 15.0))
+		if (!IsVisible(&ghost->position, 60))
 			continue;
 		int character = CurrentCharacter;
 		if (character == Characters_Sonic && MetalSonicFlag)
