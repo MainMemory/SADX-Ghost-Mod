@@ -57,6 +57,29 @@ const char centiseconds[] = {
 	67, 68, 70, 72, 73, 75, 77, 78, 80, 82, 83, 85, 87, 88, 90, 92, 93, 95, 97, 99
 };
 
+static const float margin = 0.875;
+
+#define MARGIN_RIGHT	(HorizontalResolution * margin)
+#define MARGIN_LEFT		(HorizontalResolution - MARGIN_RIGHT)
+#define MARGIN_BOTTOM	(VerticalResolution * margin)
+#define MARGIN_TOP		(VerticalResolution - MARGIN_BOTTOM)
+
+#pragma region sprite parameters
+
+static NJS_TEXNAME ghostarrow_TEXNAME[] = {
+	{ "arrow",	0, 0 }
+};
+
+static NJS_TEXLIST ghostarrow_TEXLIST = { arrayptrandlength(ghostarrow_TEXNAME) };
+
+static NJS_TEXANIM arrow_TEXANIM[] = {
+	// w,	h,	cx,	cy,	u1,	v1,	u2,		v2,	texid,	attr
+	// u2 and v2 must be 0xFF
+	{ 24, 16, 12, -16, 0, 0, 0xFF, 0xFF, 0, 0 }
+};
+
+static NJS_SPRITE arrow_SPRITE = { { 0.0f, 0.0f, 0.0f }, 1.0f, 1.0f, 0, &ghostarrow_TEXLIST, arrow_TEXANIM };
+
 unsigned int oldghostlength = 0;
 unsigned int newghostlength = 0;
 unsigned int currentframe = 0;
@@ -75,6 +98,28 @@ void FramesToTime(unsigned int frames, unsigned char &min, unsigned char &sec, u
 	min = frames / 60;
 }
 
+#define clamp(value, low, high) min(max(low, value), high)
+
+inline void ClampToScreen(NJS_POINT2& p)
+{
+	p.x = clamp(p.x, (float)MARGIN_LEFT, (float)MARGIN_RIGHT);
+	p.y = clamp(p.y, (float)MARGIN_TOP, (float)MARGIN_BOTTOM);
+}
+
+inline void ClampToScreen(NJS_VECTOR& v)
+{
+	NJS_POINT2 p = { v.x, v.y };
+	ClampToScreen(p);
+	v = { p.x, p.y, v.z };
+}
+
+template <typename T>
+double GetAngle(const T& source, const T& target)
+{
+	return atan2(target.y - source.y, target.x - source.x);
+}
+
+
 DataPointer(int, dword_3ABD9CC, 0x3ABD9CC);
 DataPointer(float, dword_3ABD9C0, 0x3ABD9C0);
 
@@ -82,6 +127,8 @@ class Ghost : GameObject
 {
 private:
 	Ghost(ObjectMaster *obj);
+protected:
+	void Delete();
 public:
 	void Main();
 	void Display();
@@ -89,6 +136,11 @@ public:
 };
 
 Ghost::Ghost(ObjectMaster *obj) :GameObject(obj){}
+
+void Ghost::Delete()
+{
+	njReleaseTexture(&ghostarrow_TEXLIST);
+}
 
 void Ghost::Display()
 {
@@ -145,6 +197,70 @@ void Ghost::Display()
 	GhostData *ghost = &oldghost[i];
 	if (ghost->segment != CurrentAct)
 		return;
+
+	njSetTexture(&ghostarrow_TEXLIST);
+	njSetTextureNum(0);
+
+	njColorBlendingMode(NJD_SOURCE_COLOR, NJD_COLOR_BLENDING_SRCALPHA);
+	njColorBlendingMode(NJD_DESTINATION_COLOR, NJD_COLOR_BLENDING_INVSRCALPHA);
+
+	NJS_SPRITE* sp = &arrow_SPRITE;
+	NJS_VECTOR pos = ghost->position;
+	pos.y += GetCharObj2(0)->PhysicsData.CollisionSize;
+
+	NJS_VECTOR vd;
+	njCalcPoint(nullptr, &pos, &vd);
+
+	bool behind = vd.z <= 0.0f;
+	auto m = _nj_screen_.dist / vd.z;
+
+	if (behind)
+	{
+		m = -m;
+	}
+
+	auto xhalf = HorizontalResolution / 2.0f;
+	auto yhalf = VerticalResolution / 2.0f;
+
+	vd.x = vd.x * m + xhalf;
+	vd.y = vd.y * m + yhalf;
+
+	// If the player is behind the camera, round either the X or Y offset to the screen edge.
+	if (behind)
+	{
+		if (vd.y < (float)VerticalResolution && vd.y > 0.0f)
+		{
+			vd.x = vd.x < xhalf ? 0.0f : (float)HorizontalResolution;
+		}
+		else if (vd.x < (float)HorizontalResolution && vd.x > 0.0f)
+		{
+			vd.y = vd.y < yhalf ? 0.0f : (float)VerticalResolution;
+		}
+	}
+
+	sp->p = { vd.x, vd.y - sp->tanim[0].sy, 0.0f };
+
+	bool isVisible =
+		sp->p.x < MARGIN_RIGHT  &&
+		sp->p.x > MARGIN_LEFT   &&
+		sp->p.y < MARGIN_BOTTOM &&
+		sp->p.y > MARGIN_TOP;
+
+	ClampToScreen(sp->p);
+	int flags = NJD_SPRITE_COLOR | NJD_SPRITE_ALPHA;
+	sp->ang = 0;
+
+	if (!isVisible)
+	{
+		flags |= NJD_SPRITE_ANGLE;
+		sp->ang = NJM_RAD_ANG(GetAngle(sp->p, vd)) - 0x4000;
+	}
+
+	sp->tanim[0].cy = -16 - (isVisible ? 0 : 12);
+
+	SetMaterialAndSpriteColor_Float(0.75f, 0.5f, 0.5f, 0.5f);
+	njDrawSprite2D_Queue(sp, 0, -1.0f, flags, (QueuedModelFlagsB)0);
+
 	if (!IsVisible(&ghost->position, 60))
 		return;
 	display++;
@@ -288,6 +404,7 @@ void LoadGhost()
 		levelstarted = true;
 	}
 	levelcomplete = false;
+	LoadPVM("ghostarrow", &ghostarrow_TEXLIST);
 	ObjectMaster *obj = LoadObject((LoadObj)0, 1, Ghost::Load);
 	if (!obj)
 	{
